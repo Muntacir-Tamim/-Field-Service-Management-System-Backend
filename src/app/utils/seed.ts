@@ -3,263 +3,219 @@
 // import config from "../config";
 // import { prisma } from "../lib/prisma";
 
-// export const seedTesterTechnician = async () => {
+// const hashPassword = (password: string) =>
+//   bcrypt.hash(password, Number(config.bcrypt_salt_rounds));
+
+// export const seedAdmin = async () => {
 //   try {
-//     const isTesterTechnicianExist = await prisma.user.findUnique({
-//       where: {
-//         email: config.tester_tecnician_email,
-//       },
+//     const existingAdmin = await prisma.user.findFirst({
+//       where: { role: Role.ADMIN },
+//       select: { id: true },
 //     });
 
-//     if (isTesterTechnicianExist) {
-//       console.log("Tester Technician Already Exists!");
+//     if (existingAdmin) {
+//       console.log("Admin already exists. Skipping admin seed.");
 //       return;
 //     }
 
-//     const name = config.tester_tecnician_name;
-//     const email = config.tester_tecnician_email;
-//     const password = config.tester_tecnician_password;
+//     const name = config.admin_name;
+//     const email = config.admin_email;
+//     const password = config.admin_password;
 
 //     if (!name || !email || !password) {
 //       throw new Error(
-//         "Tester Technician Name , Email, Password Missing In Env File!!!",
+//         "ADMIN_NAME, ADMIN_EMAIL and ADMIN_PASSWORD must be set in the env file",
 //       );
 //     }
 
-//     const hashedPassword = await bcrypt.hash(
-//       password,
-//       Number(config.bcrypt_salt_rounds),
-//     );
-
-//     const testerTechnician = await prisma.user.create({
-//       data: {
-//         name,
-//         email,
-//         password: hashedPassword,
-//         role: Role.TECHNICIAN,
-//         needPasswordChange: false,
-//         emailVerified: true,
-//       },
+//     const emailOwner = await prisma.user.findUnique({
+//       where: { email },
+//       select: { role: true },
 //     });
 
-//     await prisma.technician.create({
-//       data: {
-//         userId: testerTechnician.id,
-//         name: testerTechnician.name,
-//         email: testerTechnician.email,
-//       },
-//     });
-
-//     console.log("Tester Technician Created : ", testerTechnician);
-//   } catch (error) {
-//     console.log("Error Seeding Tester Technician : ", error);
-
-//     if (config.tester_tecnician_email) {
-//       await prisma.user.deleteMany({
-//         where: { email: config.tester_tecnician_email },
-//       });
-//     }
-//   }
-// };
-
-// export const seedTesterAdmin = async () => {
-//   try {
-//     const isTesterAdminrExist = await prisma.user.findUnique({
-//       where: {
-//         email: config.tester_admin_email,
-//       },
-//     });
-
-//     if (isTesterAdminrExist) {
-//       console.log("Tester Admin Already Exists!");
-//       return;
-//     }
-
-//     const name = config.tester_admin_name;
-//     const email = config.tester_admin_email;
-//     const password = config.tester_admin_password;
-
-//     if (!name || !email || !password) {
+//     if (emailOwner) {
 //       throw new Error(
-//         "Tester Admin Name , Email, Password Missing In Env File!!!",
+//         `Cannot seed admin: "${email}" already belongs to a ${emailOwner.role} account. Use a different ADMIN_EMAIL.`,
 //       );
 //     }
 
-//     const hashedPassword = await bcrypt.hash(
-//       password,
-//       Number(config.bcrypt_salt_rounds),
-//     );
+//     const hashedPassword = await hashPassword(password);
 
-//     const testerAdmin = await prisma.user.create({
-//       data: {
-//         name,
-//         email,
-//         password: hashedPassword,
-//         role: Role.ADMIN,
-//         needPasswordChange: false,
-//         emailVerified: true,
-//       },
-//     });
-
-//     await prisma.admin.create({
-//       data: {
-//         userId: testerAdmin.id,
-//         department: "Operations",
-//         name: testerAdmin.name,
-//         email: testerAdmin.email,
-//       },
-//     });
-
-//     console.log("Tester Admin Created : ", testerAdmin);
-//   } catch (error) {
-//     console.log("Error Seeding Tester Admin : ", error);
-
-//     if (config.tester_admin_email) {
-//       await prisma.user.deleteMany({
-//         where: { email: config.tester_admin_email },
+//     const admin = await prisma.$transaction(async (tx) => {
+//       const user = await tx.user.create({
+//         data: {
+//           name,
+//           email,
+//           password: hashedPassword,
+//           role: Role.ADMIN,
+//           needPasswordChange: false,
+//           emailVerified: true,
+//         },
 //       });
-//     }
+
+//       await tx.admin.create({
+//         data: {
+//           userId: user.id,
+//           name: user.name,
+//           email: user.email,
+//           department: "Operations",
+//         },
+//       });
+
+//       return user;
+//     });
+
+//     // never log the whole user object (it contains the password hash)
+//     console.log(`Admin created: ${admin.email}`);
+//   } catch (error) {
+//     console.error("Error seeding admin:", error);
 //   }
 // };
 
 import bcrypt from "bcryptjs";
-import { Role } from "../../generated/prisma/enums";
+import {
+  Role,
+  TechnicianVerificationStatus,
+  UserStatus,
+} from "../../generated/prisma/enums";
 import config from "../config";
 import { prisma } from "../lib/prisma";
 
-const hashPassword = (password: string) =>
-  bcrypt.hash(password, Number(config.bcrypt_salt_rounds));
+interface TesterAccount {
+  role: Role;
+  name?: string;
+  email?: string;
+  password?: string;
+}
 
 /**
- * Creates THE single admin of the system.
+ * Creates the tester accounts (admin, technician, customer) used by the
+ * one-click "Demo Login" buttons on the frontend.
  *
- * Rules:
- * - Runs on every start but is safe to repeat (does nothing if an admin exists).
- * - Never deletes anything. User + admin profile are created in ONE transaction,
- *   so a failure leaves nothing half-created.
- * - The database also enforces "only one admin" (unique indexes
- *   only_one_admin_user / only_one_admin_profile), even if two servers start together.
+ * - Values come from TESTER_ADMIN_*, TESTER_TECHNICIAN_*, TESTER_CUSTOMER_*.
+ *   They must match the frontend NEXT_PUBLIC_DEMO_* credentials.
+ * - Runs on every start and is safe to repeat (keyed by email, never deletes).
+ * - If the user already exists, its password/status is reset so the buttons
+ *   keep working even if the password was changed from the UI.
+ * - Technician is created as APPROVED so the technician dashboard is usable.
+ * - Runs in production too, because the deployed site needs working demo login.
  */
-export const seedAdmin = async () => {
-  try {
-    const existingAdmin = await prisma.user.findFirst({
-      where: { role: Role.ADMIN },
-      select: { id: true },
-    });
+export const seedTesterUsers = async () => {
+  const accounts: TesterAccount[] = [
+    {
+      role: Role.ADMIN,
+      name: config.admin_name,
+      email: config.admin_email,
+      password: config.admin_password,
+    },
+    {
+      role: Role.TECHNICIAN,
+      name: config.technician_name,
+      email: config.technician_email,
+      password: config.technician_password,
+    },
+    {
+      role: Role.CUSTOMER,
+      name: config.customer_name,
+      email: config.customer_email,
+      password: config.customer_password,
+    },
+  ];
 
-    if (existingAdmin) {
-      console.log("Admin already exists. Skipping admin seed.");
-      return;
-    }
+  for (const account of accounts) {
+    const { role, name, password } = account;
+    const label = role.toLowerCase();
 
-    const name = config.admin_name;
-    const email = config.admin_email;
-    const password = config.admin_password;
-
-    if (!name || !email || !password) {
-      throw new Error(
-        "ADMIN_NAME, ADMIN_EMAIL and ADMIN_PASSWORD must be set in the env file",
+    if (!name || !account.email || !password) {
+      console.log(
+        `Tester ${label} env (TESTER_${role}_NAME/EMAIL/PASSWORD) not set. Skipping.`,
       );
+      continue;
     }
 
-    const emailOwner = await prisma.user.findUnique({
-      where: { email },
-      select: { role: true },
-    });
+    const email = account.email.trim().toLowerCase();
 
-    if (emailOwner) {
-      throw new Error(
-        `Cannot seed admin: "${email}" already belongs to a ${emailOwner.role} account. Use a different ADMIN_EMAIL.`,
+    try {
+      const hashedPassword = await bcrypt.hash(
+        password,
+        Number(config.bcrypt_salt_rounds),
       );
-    }
 
-    const hashedPassword = await hashPassword(password);
+      const existing = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, role: true },
+      });
 
-    const admin = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+      if (existing && existing.role !== role) {
+        console.error(
+          `Tester ${label} skipped: "${email}" already belongs to a ${existing.role} account.`,
+        );
+        continue;
+      }
+
+      if (existing) {
+        await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            password: hashedPassword,
+            status: UserStatus.ACTIVE,
+            emailVerified: true,
+            needPasswordChange: false,
+            isDeleted: false,
+            deletedAt: null,
+          },
+        });
+
+        if (role === Role.TECHNICIAN) {
+          await prisma.technician.update({
+            where: { userId: existing.id },
+            data: {
+              verificationStatus: TechnicianVerificationStatus.APPROVED,
+              isDeleted: false,
+              deletedAt: null,
+            },
+          });
+        }
+
+        console.log(`Tester ${label} ready: ${email}`);
+        continue;
+      }
+
+      await prisma.user.create({
         data: {
           name,
           email,
           password: hashedPassword,
-          role: Role.ADMIN,
+          role,
+          status: UserStatus.ACTIVE,
           needPasswordChange: false,
           emailVerified: true,
+          ...(role === Role.ADMIN && {
+            admin: { create: { name, email, department: "Operations" } },
+          }),
+          ...(role === Role.CUSTOMER && {
+            customer: {
+              create: { name, email, contactNumber: "01700000000" },
+            },
+          }),
+          ...(role === Role.TECHNICIAN && {
+            technician: {
+              create: {
+                name,
+                email,
+                contactNumber: "01800000000",
+                verificationStatus: TechnicianVerificationStatus.APPROVED,
+                reviewedAt: new Date(),
+              },
+            },
+          }),
         },
       });
 
-      await tx.admin.create({
-        data: {
-          userId: user.id,
-          name: user.name,
-          email: user.email,
-          department: "Operations",
-        },
-      });
-
-      return user;
-    });
-
-    // never log the whole user object (it contains the password hash)
-    console.log(`Admin created: ${admin.email}`);
-  } catch (error) {
-    console.error("Error seeding admin:", error);
-  }
-};
-
-/**
- * Development-only technician for quick testing.
- * Never runs when NODE_ENV=production.
- */
-export const seedTechnician = async () => {
-  if (config.node_env === "production") return;
-
-  try {
-    const name = config.technician_name;
-    const email = config.technician_email;
-    const password = config.technician_password;
-
-    if (!name || !email || !password) {
-      console.log("Dev technician env not set. Skipping dev technician seed.");
-      return;
+      console.log(`Tester ${label} created: ${email}`);
+    } catch (error) {
+      // never log the whole user object (it contains the password hash)
+      console.error(`Error seeding tester ${label}:`, error);
     }
-
-    const exists = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-
-    if (exists) {
-      console.log("Dev Technician already exists.");
-      return;
-    }
-
-    const hashedPassword = await hashPassword(password);
-
-    const user = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role: Role.TECHNICIAN,
-          needPasswordChange: false,
-          emailVerified: true,
-        },
-      });
-
-      await tx.technician.create({
-        data: {
-          userId: created.id,
-          name: created.name,
-          email: created.email,
-        },
-      });
-
-      return created;
-    });
-
-    console.log(`Dev Technician created: ${user.email}`);
-  } catch (error) {
-    console.error("Error seeding dev technician:", error);
   }
 };

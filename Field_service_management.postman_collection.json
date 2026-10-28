@@ -46,7 +46,7 @@
     },
     {
       "key": "technicianEmail",
-      "value": "testertechnician@gmail.com"
+      "value": "technician@example.com"
     },
     {
       "key": "technicianPassword",
@@ -54,7 +54,7 @@
     },
     {
       "key": "adminEmail",
-      "value": "testeradmin@gmail.com"
+      "value": "admin@example.com"
     },
     {
       "key": "adminPassword",

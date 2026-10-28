@@ -1,6 +1,5 @@
 import { redisClient } from "./redis";
 
-// Cache never breaks the API: if Redis fails, we just read from the database.
 const cacheGet = async <T>(key: string): Promise<T | null> => {
   try {
     const raw = await redisClient.get(key);

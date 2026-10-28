@@ -8,7 +8,6 @@ model AuditLog {
   newValue    Json?
   metadata    Json?
 
-  // null => system action (e.g. payment gateway callback)
   actorId   String?
   actorRole Role?
   actor     User?   @relation(fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)

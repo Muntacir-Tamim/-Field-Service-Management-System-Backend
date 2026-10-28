@@ -147,10 +147,6 @@ const ensureTechnicianEligible = async (tx: Tx, technicianId: string) => {
   return technician;
 };
 
-// Row-level lock on the technician. Two requests that try to book the SAME
-// technician now run one after another (the 2nd waits until the 1st commits),
-// so ensureNoConflict() below always sees the latest data.
-// The DB exclusion constraint "no_technician_overlap" is the final safety net.
 const lockTechnician = async (tx: Tx, technicianId: string) => {
   await tx.$queryRaw`SELECT "id" FROM "technicians" WHERE "id" = ${technicianId} FOR UPDATE`;
 };
@@ -183,8 +179,6 @@ const ensureNoConflict = async (
   }
 };
 
-// Collects message / code / meta / cause of an error into one string,
-// so Postgres error codes can be detected however Prisma wraps them.
 const collectErrorText = (error: unknown, depth = 0): string => {
   if (!error || depth > 4) return "";
   if (typeof error === "string") return error;
@@ -208,7 +202,6 @@ const collectErrorText = (error: unknown, depth = 0): string => {
     .join(" ");
 };
 
-// Converts DB constraint violations (race-condition losers) into clean 409 errors
 const withConstraintErrors = async <T>(fn: () => Promise<T>): Promise<T> => {
   try {
     return await fn();
@@ -217,7 +210,6 @@ const withConstraintErrors = async <T>(fn: () => Promise<T>): Promise<T> => {
 
     const text = collectErrorText(error);
 
-    // exclusion_violation (23P01) => technician double-booked
     if (
       text.includes("no_technician_overlap") ||
       text.includes("23P01") ||
@@ -229,7 +221,6 @@ const withConstraintErrors = async <T>(fn: () => Promise<T>): Promise<T> => {
       );
     }
 
-    // unique_violation (23505 / P2002) => request already has an active assignment
     if (
       text.includes("one_active_assignment_per_request") ||
       (text.includes("P2002") && text.includes("serviceRequestId"))
@@ -603,11 +594,9 @@ const rescheduleAssignment = async (
         });
       }
 
-      // 2) validate the new slot
       await ensureTechnicianEligible(tx, newTechnicianId);
       await ensureNoConflict(tx, newTechnicianId, scheduledStart, scheduledEnd);
 
-      // 3) create the new assignment
       const next = await tx.assignment.create({
         data: {
           serviceRequestId: current.serviceRequestId,

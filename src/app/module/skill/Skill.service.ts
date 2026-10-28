@@ -122,7 +122,6 @@ const updateSkill = async (
   return updated;
 };
 
-// Soft delete
 const deleteSkill = async (skillId: string, user: IRequestUser) => {
   const skill = await prisma.skill.findFirst({
     where: { id: skillId, isDeleted: false },

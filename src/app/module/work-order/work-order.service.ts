@@ -6,7 +6,8 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import { AuditLogServices } from "../audit-log/audit-log.service";
-import { NotificationEvents } from "../notification/notification.events"; // 🔔 NOTIFICATION
+import { NotificationEvents } from "../notification/notification.events";
+
 import type {
   IAddPartPayload,
   ICompleteWorkPayload,

@@ -1,6 +1,4 @@
 import z from "zod";
-
-// GET /admin/users  (query params)
 export const GetUsersQueryZodSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
@@ -11,7 +9,6 @@ export const GetUsersQueryZodSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
-// PATCH /admin/users/:userId/status  (body)
 export const UpdateUserStatusZodSchema = z
   .object({
     status: z.enum(["ACTIVE", "BLOCKED"], {

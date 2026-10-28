@@ -48,14 +48,12 @@ model WorkOrderPart {
   @@map("work_order_parts")
 }
 
-// Service report — written by technician after completing the job
-// Healthcare equivalent: Appointment.prescriptionUrl (the formal document after the visit)
 model ServiceReport {
   id              String   @id @default(uuid())
   summary         String
   findings        String
   recommendations String?
-  reportUrl       String?  // uploaded PDF or doc
+  reportUrl       String?  
   reportPublicId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -66,8 +64,6 @@ model ServiceReport {
   @@map("service_reports")
 }
 
-// Photos/files technician uploads during the job (before/after photos etc.)
-// Healthcare equivalent: Appointment.recordUrl (but multiple files)
 model WorkOrderAttachment {
   id        String   @id @default(uuid())
   url       String

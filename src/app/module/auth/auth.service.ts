@@ -90,8 +90,6 @@ const registerCustomer = async (payload: IRegisterCustomerPayload) => {
     from: config.email_sender,
     to: email,
     subject: "Email Verification",
-    // text : `Your OTP is ${otp}`
-    // html: `<h1>Your OTP is ${otp}</h1>`
     html,
   });
 };
@@ -178,8 +176,6 @@ const verifyCustomerEmail = async (payload: IVerifyEmailPayload) => {
     from: config.email_sender,
     to: email,
     subject: "Welcome To Field Service Management System",
-    // text : `Your OTP is ${otp}`
-    // html: `<h1>Your OTP is ${otp}</h1>`
     html,
   });
 
@@ -570,8 +566,6 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
     from: config.email_sender,
     to: isUserExist.email,
     subject: "Forgot Password",
-    //text: `Your OTP is ${otp}`,
-    // html: `<h1>Your OTP is ${otp}</h1>`
     html,
   });
 };
@@ -648,8 +642,6 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
     from: config.email_sender,
     to: isUserExist.email,
     subject: "Password Changed",
-    // text : `Your OTP is ${otp}`
-    // html: `<h1>Your Password Is Changed</h1>`
     html,
   });
 };

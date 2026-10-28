@@ -28,7 +28,6 @@ router.patch(
   UserController.uploadProfileImage,
 );
 
-// Purono path (/users/profile-image) — Postman collection update korle eta muche dite paro
 router.patch(
   "/profile-image",
   auth(...ALL_ROLES),
