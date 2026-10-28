@@ -136,7 +136,7 @@ npx prisma migrate deploy   # applies all migrations
 npm run dev                 # http://localhost:5000
 ```
 
-On startup the server connects to PostgreSQL, Redis and the SMTP server, then **seeds one admin and one technician** from the `TESTER_*` variables (skipped if they already exist).
+On startup the server connects to PostgreSQL, Redis and the SMTP server, then **seeds the single admin account** from the `ADMIN_*` variables (skipped if an admin already exists). Technicians are not seeded: they register through the technician application flow and are approved by the admin.
 
 ### Production build
 
@@ -160,7 +160,7 @@ Copy `.env.example` to `.env`.
 | `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`                                         | e.g. `1d`, `7d`                                                                                           |
 | `BCRYPT_SALT_ROUNDS`                                                                      | Password hashing cost                                                                                     |
 | `GOOGLE_CLIENT_ID`                                                                        | Google OAuth client id (Google login)                                                                     |
-| `TESTER_ADMIN_*`, `TESTER_TECHNICIAN_*`                                                   | Name, email, password of the seeded admin and technician                                                  |
+| `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`                                             | Name, email, password of the seeded admin account                                                         |
 | `REDIS_USER`, `REDIS_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`                                | Redis connection                                                                                          |
 | `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_SENDER`                                              | Email sending                                                                                             |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`                    | File storage                                                                                              |
